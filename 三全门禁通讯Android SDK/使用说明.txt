@@ -1,0 +1,47 @@
+接口文档请参考document_chinese中的html文档index.html
+
+调用步骤:
+1.Android Studio工程中导入库文件board_comm-release.aar
+
+  implementation(name: 'board_comm-release', ext: 'aar')
+
+2.App中打开并启动串口任务,注意：不要在不同的app同时打开串口，或者在同一个app进程重复打开串口，可能会影响接收mcu消息。
+  DoorAccessCommManager.getInstance().openComm("/dev/ttyS3",9600,seriallistener );
+
+3.设置mcu消息回调,处理mcu返回的消息，比如按键，刷卡消息，具体参考接口文档说明
+
+  DoorAccessCommManager.getInstance().setOnBoardCommRequest(mcuCallback);
+
+4. 发送开门指令给mcu，mcu继电器吸合打开门，注意开门指令避免1s内发送多次，最好间隔2s或以上。开门指令发送成功，mcu板会返回开门记录消息，此消息也是刷卡上报的消息，
+    所以建议开门时，传递给mcu的cardId为全0，用于区分是刷卡上报，还是开门记录上报。
+
+  byte[] unlockCardId = CRC16M.getSendBuf("0000000000000000");
+  DoorAccessCommManager.getInstance().sendOpenCommand(unlockCardId,DoorAccessCommManager.ACCESS_MODE_MANUAL);
+
+  mcu刷卡板的开门记录和刷卡上报的消息是同一个接口，参考回调接口
+  void onBoardPostAccessRecord(byte[] cardId,byte[] startDateTime,byte[] endDateTime,byte[] curDateTime,byte[] phoneNum,byte accessMode,byte cardType );
+  
+
+
+5.APP退出或不使用串口时，关闭释放串口任务，以便下次再打开
+
+  DoorAccessCommManager.getInstance().closeComm();
+
+
+
+
+6.补光灯打开或关闭 参考GpioController.turnOnLed()和turnOffLed()
+
+除了补光灯，8寸闸机还有两个彩色指示灯：
+红色灯打开GpioController.getInstance().turnOnPort(1);关闭 GpioController.getInstance().turnOffPort(1)
+
+绿色灯打开 GpioController.getInstance().turnOnPort(2);
+
+关闭 GpioController.getInstance().turnOffPort(2);
+
+
+7.对于带人体感应的门禁机，首先打开人体感应开关
+GpioController.getInstance().openInfrared();
+
+只要有人体感应信号，就会触发activity onkeydown事件，无人体感应时不触发onkeydown，对应的keycode DoorAccessCommManager.KEYCODE_INFRARED_ON，可以通过检测此键值判断是否有人体活动
+ 
